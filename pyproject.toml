@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "local-auto-editor"
-version = "0.3.0"
+version = "0.4.0"
 description = "本地优先的 AI 辅助自动剪辑流水线"
 readme = "README.md"
 license = "MIT"
@@ -21,6 +21,8 @@ Issues = "https://github.com/WuChiRay/auto-video-editor/issues"
 transcribe = ["faster-whisper>=1.1.0"]
 draft = ["pyJianYingDraft==0.3.0"]
 music = ["numpy>=1.26"]
+voice = ["edge-tts==7.2.8"]
+visual = ["Pillow>=10.4"]
 dev = ["build>=1.2", "pyinstaller>=6.10"]
 
 [project.scripts]

@@ -28,6 +28,8 @@ class ClipSegment:
     title: str = ""
     output_duration: float | None = None
     loop: bool = False
+    filter: str = "none"
+    effects: tuple[str, ...] = ()
 
     @property
     def duration(self) -> float:
@@ -168,6 +170,14 @@ def load_plan(path: Path, input_dir: Path) -> list[ClipSegment]:
                               float(item.get("speed", 1)), str(item.get("title", "")),
                               float(item["output_duration"]) if "output_duration" in item else None,
                               bool(item.get("loop", False)))
+            if not math.isfinite(seg.speed) or not .5 <= seg.speed <= 2:
+                raise PipelineError("速度必须在 0.5–2 之间")
+            from .enhancements import FILTERS, EFFECTS
+            seg.filter = str(item.get("filter", "none"))
+            effects = item.get("effects", [])
+            if seg.filter not in FILTERS or not isinstance(effects, list) or any(not isinstance(x, str) or x not in EFFECTS for x in effects):
+                raise PipelineError("未知滤镜或特效；请使用文档列出的预设")
+            seg.effects = tuple(effects)
             values = [seg.start, seg.end, seg.speed, seg.duration]
             if not all(math.isfinite(x) for x in values) or seg.start < 0 or seg.end <= seg.start or seg.speed < 0.5 or seg.speed > 2 or seg.duration <= 0:
                 raise PipelineError(f"无效片段（时间、速度或时长）：{source}")
@@ -219,6 +229,8 @@ def render_segment(seg: ClipSegment, target: Path, *, width: int, height: int, f
         frames = max(1, round(seg.source_duration / seg.speed * fps))
         vf += f",loop=loop=-1:size={frames}:start=0,setpts=N/({fps}*TB)"
     vf += f",scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
+    from .enhancements import segment_filters
+    vf += segment_filters(seg, width, height, fps)
     if subtitle:
         vf += f",subtitles=filename='{escape_subtitle_path(subtitle)}'"
     source_has_audio = has_audio(Path(seg.source)) and not mute_source and not seg.loop

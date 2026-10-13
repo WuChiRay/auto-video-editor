@@ -6,6 +6,7 @@ import sys
 import math
 import uuid
 import os
+import shutil
 from pathlib import Path
 
 from .core import (
@@ -41,7 +42,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--whisper-model", default="small", help="faster-whisper 模型名，例如 tiny/base/small")
     parser.add_argument("--dry-run", action="store_true", help="只分析并写出 manifest，不渲染")
     parser.add_argument("--draft", type=Path, help="额外生成可编辑剪映草稿目录（需要 draft extra）")
-    parser.add_argument("--draft-only", action="store_true", help="仅生成 --draft 指定的草稿，不渲染成片")
+    parser.add_argument("--draft-only", action="store_true", help="仅生成草稿；丰富效果计划仍需渲染草稿画面")
+    parser.add_argument("--narration-text", type=Path, help="UTF-8 完整口播文件；一次连续合成并生成全片字幕")
+    parser.add_argument("--narration-audio", type=Path, help="使用已有配音音频，无需联网")
+    parser.add_argument("--narration-subtitle", type=Path, help="与已有配音对齐的全片 SRT")
+    parser.add_argument("--voice", help="mature/warm/steady/female 或 Edge 神经声音 ID；默认 mature")
+    parser.add_argument("--voice-rate", help="自然语速，默认 +4%%；负值请用 --voice-rate=-4%%")
+    parser.add_argument("--voice-fit", choices=["extend_last", "error"], help="口播过长时延长最后画面或报错")
+    parser.add_argument("--voice-preview", type=Path, help="只生成试听 MP3、字幕和字词时间，需 --narration-text")
+    parser.add_argument("--transition", choices=["cut", "fade", "wipeleft", "slideright", "circleopen", "dissolve"])
+    parser.add_argument("--transition-duration", type=float, help="转场重叠秒数，默认 0.35；会缩短总时长")
+    parser.add_argument("--filter", choices=["none", "warm", "cool", "mono", "vivid", "cinematic"], help="全片滤镜预设")
     return parser
 
 
@@ -59,15 +70,28 @@ def main(argv: list[str] | None = None) -> int:
             root = args.draft_root or Path(os.environ.get("LOCALAPPDATA", ".")) / "JianyingPro/User Data/Projects/com.lveditor.draft"
             print(f"[导入] {install(args.install_draft, root)}")
             return 0
+        from .enhancements import settings, assemble, extend_picture, overlays, mix_narration
+        from .speech import synthesize, read_captions, write_voice_ass
+        from .core import duration_of
+        if args.voice_preview:
+            require_tools()
+            if not args.narration_text or args.voice_preview.suffix.lower() != ".mp3":
+                raise PipelineError("试听需要 --narration-text 文本文件，--voice-preview 输出必须为 .mp3")
+            audio, srt = synthesize(args.narration_text.read_text(encoding="utf-8-sig"), args.voice_preview,
+                voice=args.voice or "mature", rate=args.voice_rate or "+4%")
+            print(f"[试听] {audio.resolve()}\n[字幕] {srt.resolve()}")
+            return 0
         if args.draft_only and not args.draft:
             raise PipelineError("--draft-only 需要 --draft 目录")
+        if args.draft and args.draft.exists():
+            raise PipelineError("草稿目录已存在，请选择新目录")
         if args.width < 2 or args.height < 2 or args.width % 2 or args.height % 2:
             raise PipelineError("画面宽高必须是大于零的偶数")
         if args.fps <= 0 or not 0 <= args.crf <= 51:
             raise PipelineError("帧率必须大于零，CRF 必须在 0–51 之间")
         if not math.isfinite(args.music_volume) or args.music_volume < 0:
             raise PipelineError("音乐音量必须是有限的非负数字")
-        for asset in (args.music, args.subtitle):
+        for asset in (args.music, args.subtitle, args.narration_text, args.narration_audio, args.narration_subtitle):
             if asset and not asset.is_file():
                 raise PipelineError(f"文件不存在：{asset}")
         require_tools()
@@ -90,10 +114,46 @@ def main(argv: list[str] | None = None) -> int:
                                                      padding=args.keep_padding))
         if not segments:
             raise PipelineError("没有可渲染的片段")
+        data = json.loads(args.plan.read_text(encoding="utf-8")) if args.plan else {}
+        config = settings(data, args.plan.resolve().parent if args.plan else Path.cwd())
+        if args.transition:
+            config["transition"]["name"] = args.transition
+        if args.transition_duration is not None:
+            from .enhancements import number
+            config["transition"]["duration"] = number(args.transition_duration, "转场时长", .05, 2)
+        narration = config["narration"]
+        if args.narration_text and args.narration_audio:
+            raise PipelineError("--narration-text 和 --narration-audio 只能选一个")
+        if args.narration_text or args.narration_audio:
+            for key in ("text", "text_file", "audio"):
+                narration.pop(key, None)
+        if args.narration_text:
+            narration["text_file"] = str(args.narration_text)
+        if args.narration_audio:
+            narration["audio"] = str(args.narration_audio)
+        for value, key in [(args.narration_subtitle, "subtitles"), (args.voice, "voice"),
+                           (args.voice_rate, "rate"), (args.voice_fit, "fit")]:
+            if value is not None:
+                narration[key] = str(value)
+        if args.filter:
+            for seg in segments:
+                seg.filter = args.filter
+        rich = bool(narration or config["elements"] or config["sound_effects"] or
+                    config["transition"]["name"] != "cut" or any(s.filter != "none" or s.effects for s in segments))
+        if narration and (args.subtitle or args.transcribe):
+            raise PipelineError("配音字幕请用 --narration-subtitle；不能与旧版 --subtitle/--transcribe 混用")
         if any(args.output.resolve() == Path(s.source).resolve() for s in segments):
             raise PipelineError("输出不能覆盖源视频，请选择其他输出路径")
+        input_assets = [s.source for s in segments] + [x for x in (args.music, args.subtitle, args.plan) if x]
+        input_assets += [narration[k] for k in ("audio", "text_file", "subtitles") if narration.get(k)]
+        input_assets += [x[k] for x in config["elements"] + config["sound_effects"] for k in ("file", "font") if x.get(k)]
+        if any(args.output.resolve() == Path(x).resolve() for x in input_assets):
+            raise PipelineError("输出不能覆盖计划或输入素材")
         report = manifest(segments, args.output.resolve())
+        report["enhancements"] = config
         report_path = args.output.with_suffix(".manifest.json")
+        if any(report_path.resolve() == Path(x).resolve() for x in input_assets):
+            raise PipelineError("剪辑报告不能覆盖计划或输入素材")
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"[计划] {len(segments)} 个片段，预计 {sum(x.duration for x in segments):.1f}s")
         if args.dry_run:
@@ -101,7 +161,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.draft_only and not args.draft:
             raise PipelineError("--draft-only 需要 --draft 目录")
-        if args.draft:
+        if args.draft and not rich:
             if args.subtitle or args.transcribe:
                 raise PipelineError("草稿导出暂支持 plan 动作标题；外部/转写字幕尚未适配。")
             from .jianying import export_draft
@@ -111,6 +171,20 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[草稿] {folder}")
             if args.draft_only:
                 return 0
+        if args.draft and rich and (args.subtitle or args.transcribe):
+            raise PipelineError("丰富效果草稿请使用 narration.subtitles 全片字幕；旧版片段字幕尚不支持分轨")
+        voice, global_subtitle, captions = None, None, []
+        if narration.get("audio"):
+            voice = Path(narration["audio"])
+        elif narration.get("text") or narration.get("text_file"):
+            text = str(narration.get("text", "")) or Path(narration["text_file"]).read_text(encoding="utf-8-sig")
+            print("[配音] 完整口播连续合成（仅口播文本发送至微软在线语音服务）")
+            voice, global_subtitle = synthesize(text, args.work / "narration.mp3",
+                voice=narration.get("voice", "mature"), rate=narration.get("rate", "+4%"), pitch=narration.get("pitch", "+0Hz"))
+        if narration.get("subtitles"):
+            global_subtitle = Path(narration["subtitles"])
+        if global_subtitle:
+            captions = read_captions(global_subtitle)
         generated_subtitles: dict[str, Path] = {}
         if args.transcribe and not args.subtitle:
             for video in videos:
@@ -129,9 +203,49 @@ def main(argv: list[str] | None = None) -> int:
                            crf=args.crf, audio_bitrate="128k", subtitle=subtitle, mute_source=args.mute_source)
             rendered.append(target)
         assembled = args.work / "assembled.mp4"
-        concat_segments(rendered, assembled)
+        total = assemble(rendered, assembled, config["transition"], args.fps, args.crf)
+        if voice and duration_of(voice) > total + .04:
+            if narration.get("fit", "extend_last") == "error":
+                raise PipelineError("口播长于画面；请延长计划，或设置 narration.fit=extend_last")
+            total = math.ceil(duration_of(voice) * args.fps) / args.fps
+            extended = args.work / "extended.mp4"
+            extend_picture(assembled, extended, total, args.fps, args.crf)
+            assembled = extended
+            print(f"[时间线] 最后画面延长至 {total:.2f}s，保持配音自然语速")
+        if captions and captions[-1]["end"] > total + .04:
+            raise PipelineError("全片字幕超出最终时间线；请校准字幕或延长画面")
+        if config["elements"]:
+            decorated = args.work / "decorated.mp4"
+            overlays(assembled, decorated, config["elements"], args.work, args.width, args.height, total, args.crf)
+            assembled = decorated
         final = args.output
-        if args.music:
+        if rich:
+            target = args.work / "draft-preview.mp4" if args.draft_only else final
+            burned_subtitle = None
+            if captions:
+                burned_subtitle = args.work / "narration.ass"
+                write_voice_ass(burned_subtitle, captions, args.width, args.height)
+            stems = mix_narration(assembled, target, args.work, total, voice=voice, music=args.music,
+                music_volume=args.music_volume, sounds=config["sound_effects"], subtitles=burned_subtitle, crf=args.crf)
+            if args.draft:
+                from .jianying import export_composed_draft
+                folder = export_composed_draft(assembled, stems, captions, args.draft,
+                    width=args.width, height=args.height, fps=args.fps, total=total,
+                    source_volume=.15 if voice else 1)
+                print(f"[草稿] {folder}（视觉效果已合成，配音/字幕/音乐/音效独立）")
+            if voice:
+                preview = final.with_name(final.stem + ".narration" + voice.suffix)
+                if preview.resolve() != voice.resolve():
+                    shutil.copy2(voice, preview)
+                print(f"[试听] {preview.resolve()}")
+                words = voice.with_suffix(".words.json")
+                if words.is_file():
+                    shutil.copy2(words, final.with_suffix(".words.json"))
+            if global_subtitle:
+                destination = final.with_suffix(".srt")
+                if destination.resolve() != global_subtitle.resolve():
+                    shutil.copy2(global_subtitle, destination)
+        elif args.music:
             if has_audio(assembled):
                 add_music(assembled, args.music, final, volume=args.music_volume)
             else:
@@ -139,7 +253,12 @@ def main(argv: list[str] | None = None) -> int:
                 assembled.replace(final)
         else:
             assembled.replace(final)
-        print(f"[完成] {final.resolve()}")
+        report.update(final_duration=duration_of(final) if not args.draft_only else total,
+                      narration_duration=duration_of(voice) if voice else None,
+                      visual_effects_baked_in_draft=rich and bool(args.draft))
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        if not args.draft_only:
+            print(f"[完成] {final.resolve()}")
         print(f"[报告] {report_path.resolve()}")
         return 0
     except (PipelineError, OSError, ValueError, RuntimeError) as exc:

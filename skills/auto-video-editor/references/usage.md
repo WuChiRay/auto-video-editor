@@ -30,6 +30,6 @@ python -m pipeline --input input --plan plan.json --draft output/editable-projec
 }
 ```
 
-Paths in a plan are relative to `--input`. Passing `--plan` disables automatic silence detection and uses only the listed ranges.
+Video paths in a plan are relative to `--input`; enhanced auxiliary assets are relative to the plan file. Passing `--plan` disables automatic silence detection and uses only the listed ranges. For continuous narration and rich visuals read [enhancements.md](enhancements.md).
 
 Editing parameters are never automatic visible text. Use `title` for action labels and `--heading` for a series heading. Editable drafts include independently encoded 1x action assets with native timeline speeds, separate text tracks and a music track. Share the whole folder, close Jianying, run its bundled `双击导入.cmd`, then reopen Jianying. A custom draft root can be provided with `python 导入草稿.py --root PATH`.

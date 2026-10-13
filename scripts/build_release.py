@@ -20,6 +20,7 @@ def main():
     build = root / "build" / "windows"
     common = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
         "--paths", str(root), "--collect-all", "pyJianYingDraft",
+        "--collect-all", "edge_tts", "--collect-all", "certifi",
         "--add-data", str(root / "pipeline/draft_install.py") + ";pipeline",
         "--exclude-module", "faster_whisper", "--exclude-module", "torch",
         "--exclude-module", "cv2", "--specpath", str(build), "--workpath", str(build / "temp")]
@@ -33,6 +34,11 @@ def main():
         shutil.copy2(root / name, base / name)
     shutil.copytree(root / "skills", base / "skills")
     shutil.copytree(root / "examples", base / "examples")
+    shutil.copytree(root / "docs", base / "docs")
+    # Supply the LGPL library's corresponding Python source and allow rebuilding.
+    import edge_tts
+    shutil.copytree(Path(edge_tts.__file__).parent, base / "third_party/edge_tts",
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     (base / "QUICK_START.txt").write_text(
         "Auto Video Editor\n\n1. Install FFmpeg separately (ffmpeg and ffprobe on PATH).\n"
         "Windows: winget install --id Gyan.FFmpeg --exact\n"
@@ -42,6 +48,7 @@ def main():
         "CLI: auto-edit.exe --help\n"
         "Draft import: auto-edit.exe --install-draft PATH_TO_DRAFT (close Jianying first).\n"
         "Automatic transcription is available in the Python version, not this executable.\n"
+        "Neural narration and icons are included. Narration sends only script text to Microsoft's online speech service.\n"
         "MIT licensed source; dependencies keep their own licenses.\n", encoding="utf-8")
     licenses = base / "licenses"
     licenses.mkdir()

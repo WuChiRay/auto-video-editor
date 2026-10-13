@@ -1,5 +1,5 @@
 include LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md install_skill.ps1 config.example.json
-recursive-include examples *.json
+recursive-include examples *.json *.txt
 recursive-include skills *.md *.yaml
 recursive-include docs *.md
 recursive-include scripts *.py

@@ -12,6 +12,10 @@
 - 混入用户提供的 BGM，烧录外部 SRT；Python 版可选本地 Whisper 转写。
 - 导出视频、标题、BGM 分轨的剪映草稿，并重定位素材后导入。
 - 通过 Skill 让 Codex 理解要求、编制计划、调用本地程序。
+- 整段神经配音、字词对齐字幕、配乐自动避让，支持先生成试听。
+- 可选转场、滤镜、渐进缩放、暗角、图标、标签、图片和本地提示音效。
+
+**0.4.0 新功能用法与完整参数见 [连续配音与丰富元素](docs/ENHANCEMENTS.md)**。GUI 可选择口播 TXT、成熟青年声音、转场和滤镜；高级元素通过 JSON 计划组合。
 
 **程序本身不调用大模型，不会独立识别动作或决定最佳镜头。** 语义分析由调用者的 AI 或人工完成，计划交给本程序执行。倍速和时长只作为剪辑参数；除非用户明确要求，画面不出现这些参数。
 
@@ -42,13 +46,13 @@ Windows 包不包含 Whisper 模型与转写依赖；自动转写请使用 Pytho
 需要 Python 3.11+、FFmpeg 和 ffprobe。下载仓库源码后，在项目目录执行：
 
 ```powershell
-python -m pip install '.[draft]'
+python -m pip install '.[draft,voice,visual]'
 auto-edit --version
 auto-edit-gui
 ```
 
 如果命令入口不在 PATH，也可以用 `python -m pipeline` 或 `python -m pipeline.gui`。
-安装下载的 wheel：`python -m pip install "local_auto_editor-0.3.0-py3-none-any.whl[draft]"`。
+安装下载的 wheel：`python -m pip install "local_auto_editor-0.4.0-py3-none-any.whl[draft,voice,visual]"`。
 
 基础剪辑：
 
@@ -97,7 +101,7 @@ python -m pipeline --input input --plan examples/plan.json --output output/final
 
 默认位置为当前 Windows 用户的剪映本地草稿目录；CLI 可通过 `--draft-root` 指定其他位置。导入复制素材、备份索引并避免覆盖已有同名项目。重新打开剪映，在“本地草稿”中编辑；不要把 JSON 当作视频素材导入。
 
-草稿适配器暂不支持外部 SRT 或自动转写字幕，不自动操作剪映导出。分享时必须包含整个草稿目录及 `assets/`，无需分享原视频或连接作者电脑。
+基础草稿暂不支持旧版 `--subtitle` 或自动转写字幕；丰富计划支持 `narration.subtitles` 的全片字幕分轨。转场、滤镜等视觉效果合成在画面里，配音、字幕、音乐和音效独立编辑，详见新功能文档。不自动操作剪映导出。分享时必须包含整个草稿目录及 `assets/`，无需分享原视频或连接作者电脑。
 
 ## 在 Codex 中调用
 
@@ -113,7 +117,7 @@ python -m pipeline --input input --plan examples/plan.json --output output/final
 $auto-video-editor 把 input 里的视频按 plan.json 剪成竖屏，添加动作标题和我提供的 BGM，同时输出剪映草稿。时长和倍速只作为剪辑参数。
 ```
 
-Skill 是本地工具的调用说明，不包含云端服务或大模型账号。使用你自己的 AI 工具及凭证；默认不上传素材。
+Skill 是本地工具的调用说明，不包含大模型账号。使用你自己的 AI 工具及凭证；默认不上传视频。选择神经配音时仅口播文本发送至微软在线语音服务，已有录音可完全本地处理。
 
 ## 可选功能与开发
 
@@ -130,7 +134,7 @@ python -X utf8 -m unittest discover -s tests -v
 构建 Python 包与 Windows 程序：
 
 ```powershell
-python -m pip install '.[draft,dev]'
+python -m pip install '.[draft,voice,visual,dev]'
 python -m build
 python scripts/build_release.py
 ```
