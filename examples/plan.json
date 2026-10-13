@@ -1,0 +1,6 @@
+{
+  "clips": [
+    {"file": "sample.mp4", "start": 0, "end": 7.2, "speed": 1.2, "output_duration": 6, "title": "动作一"},
+    {"file": "sample.mp4", "start": 8, "end": 12.5, "speed": 1.2, "output_duration": 6, "loop": true, "title": "动作二"}
+  ]
+}

@@ -1,0 +1,30 @@
+name: Build release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install '.[draft,dev]'
+      - run: python -m build
+      - run: python scripts/build_release.py
+      - name: Test frozen executable
+        run: |
+          choco install ffmpeg --no-progress -y
+          $cli = Get-ChildItem release -Directory | ForEach-Object { Join-Path $_.FullName 'auto-edit.exe' } | Select-Object -First 1
+          & $cli --version
+          python scripts/smoke_release.py $cli
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: |
+            dist/*
+            release/*.zip

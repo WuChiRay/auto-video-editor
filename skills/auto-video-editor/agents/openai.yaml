@@ -1,0 +1,7 @@
+interface:
+  display_name: "Auto Video Editor"
+  short_description: "用自然语言调用本地自动剪辑流水线"
+  default_prompt: "Use $auto-video-editor to process the videos in input and report the output file path."
+
+policy:
+  allow_implicit_invocation: true

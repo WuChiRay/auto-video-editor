@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "local-auto-editor"
+version = "0.3.0"
+description = "本地优先的 AI 辅助自动剪辑流水线"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+keywords = ["video", "ffmpeg", "jianying", "codex", "automation"]
+requires-python = ">=3.11"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/WuChiRay/auto-video-editor"
+Issues = "https://github.com/WuChiRay/auto-video-editor/issues"
+
+[project.optional-dependencies]
+transcribe = ["faster-whisper>=1.1.0"]
+draft = ["pyJianYingDraft==0.3.0"]
+music = ["numpy>=1.26"]
+dev = ["build>=1.2", "pyinstaller>=6.10"]
+
+[project.scripts]
+auto-edit = "pipeline.cli:main"
+auto-edit-gui = "pipeline.gui:main"
+
+[tool.setuptools.packages.find]
+include = ["pipeline*"]
