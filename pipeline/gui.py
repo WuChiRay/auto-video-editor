@@ -6,6 +6,8 @@ import io
 import queue
 import threading
 import uuid
+import sys
+import json
 from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -26,19 +28,19 @@ class QueueWriter(io.TextIOBase):
         pass
 
 
-def main() -> int:
+def main(*, smoke_test: bool = False, smoke_report: Path | None = None) -> int:
     root = tk.Tk()
     root.title(f"Auto Video Editor {__version__}")
     root.geometry("860x820")
     root.minsize(720, 720)
     panel = ttk.Frame(root, padding=20)
     panel.pack(fill="both", expand=True)
-    ttk.Label(panel, text="本地自动剪辑", font=("Microsoft YaHei", 18, "bold")).grid(
+    ttk.Label(panel, text="本地自动剪辑", font=("PingFang SC" if sys.platform == "darwin" else "Microsoft YaHei", 18, "bold")).grid(
         row=0, column=0, columnspan=3, sticky="w")
     ttk.Label(panel, text="按剪辑计划输出成片；未选择计划时，自动去除较长静音段。").grid(
         row=1, column=0, columnspan=3, sticky="w", pady=(8, 14))
     values = {name: tk.StringVar() for name in ("input", "plan", "music", "output", "heading", "narration-text")}
-    values["output"].set(str(Path.home() / "Videos" / "auto-edit" / "final.mp4"))
+    values["output"].set(str(Path.home() / ("Movies" if sys.platform == "darwin" else "Videos") / "auto-edit" / "final.mp4"))
     busy = [False]
     events = queue.Queue()
 
@@ -144,7 +146,18 @@ def main() -> int:
             return
         folder = filedialog.askdirectory(title="选择已生成的完整草稿文件夹（先退出剪映）")
         if folder:
-            launch(["--install-draft", folder])
+            args = ["--install-draft", folder]
+            if sys.platform == "darwin":
+                from .draft_install import default_draft_root
+                try:
+                    initial = str(default_draft_root())
+                except RuntimeError:
+                    initial = str(Path.home() / "Movies")
+                target = filedialog.askdirectory(title="确认剪映设置中的草稿保存目录", initialdir=initial)
+                if not target:
+                    return
+                args += ["--draft-root", target]
+            launch(args)
 
     start = ttk.Button(actions, text="开始剪辑", command=render)
     start.pack(side="left")
@@ -179,6 +192,15 @@ def main() -> int:
             root.destroy()
     root.protocol("WM_DELETE_WINDOW", close)
     tick()
+    if smoke_test:
+        def verify_window():
+            root.update_idletasks()
+            if smoke_report:
+                smoke_report.write_text(json.dumps({"gui_ready": True,
+                    "width": root.winfo_width(), "height": root.winfo_height()}), encoding="utf-8")
+            print(f"GUI_SMOKE_OK size={root.winfo_width()}x{root.winfo_height()}", flush=True)
+            root.destroy()
+        root.after(500, verify_window)
     root.mainloop()
     return 0
 

@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from xml.sax.saxutils import escape
 
-from .core import PipelineError, _srt_time, duration_of
+from .core import PipelineError, _srt_time, duration_of, subtitle_font
 
 VOICES = {
     "mature": "zh-CN-YunjianNeural",
@@ -82,7 +82,7 @@ def write_voice_ass(path: Path, captions: list[dict], width: int, height: int) -
         f"[Script Info]\nScriptType: v4.00+\nPlayResX: {width}\nPlayResY: {height}\nWrapStyle: 0",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Voice,Microsoft YaHei,{size},&H00FFFFFF,&H00FFFFFF,&H00202020,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,2,{round(width*.08)},{round(width*.08)},{round(height*.065)},1",
+        f"Style: Voice,{subtitle_font()},{size},&H00FFFFFF,&H00FFFFFF,&H00202020,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,2,{round(width*.08)},{round(width*.08)},{round(height*.065)},1",
         "[Events]", "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
     for c in captions:

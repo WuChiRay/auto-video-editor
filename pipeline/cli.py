@@ -66,8 +66,8 @@ def main(argv: list[str] | None = None) -> int:
             from .gui import main as gui_main
             return gui_main()
         if args.install_draft:
-            from .draft_install import install
-            root = args.draft_root or Path(os.environ.get("LOCALAPPDATA", ".")) / "JianyingPro/User Data/Projects/com.lveditor.draft"
+            from .draft_install import install, default_draft_root
+            root = args.draft_root or default_draft_root()
             print(f"[导入] {install(args.install_draft, root)}")
             return 0
         from .enhancements import settings, assemble, extend_picture, overlays, mix_narration

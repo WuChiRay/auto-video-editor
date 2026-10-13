@@ -8,7 +8,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +21,9 @@ jobs:
       - name: Install FFmpeg on Windows
         if: runner.os == 'Windows'
         run: choco install ffmpeg --no-progress -y
+      - name: Install FFmpeg on Mac
+        if: runner.os == 'macOS'
+        run: HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg
       - run: python -m pip install '.[draft,voice,visual]'
       - run: python -X utf8 -m unittest discover -s tests -v
       - run: auto-edit --version

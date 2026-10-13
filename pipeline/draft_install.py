@@ -6,7 +6,37 @@ import shutil
 import subprocess
 import time
 import uuid
+import sys
 from pathlib import Path
+
+
+def default_draft_root():
+    """Use an existing Mac store; never silently create a guessed Mac location."""
+    if sys.platform == "darwin":
+        candidates = [Path.home() / folder / app / "User Data/Projects/com.lveditor.draft"
+                      for folder in ("Movies", "Library/Application Support")
+                      for app in ("JianyingPro", "CapCut")]
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate
+        raise RuntimeError("未找到剪映草稿目录；请查看剪映设置中的草稿位置，并用 --draft-root / --root 指定")
+    return Path(os.environ.get("LOCALAPPDATA", ".")) / "JianyingPro/User Data/Projects/com.lveditor.draft"
+
+
+def ensure_editor_closed():
+    if os.name == "nt":
+        running = subprocess.check_output([
+            "tasklist", "/FI", "IMAGENAME eq JianyingPro.exe", "/FO", "CSV", "/NH"
+        ], errors="replace", creationflags=subprocess.CREATE_NO_WINDOW)
+        active = '"JianyingPro.exe"' in running
+    elif sys.platform == "darwin":
+        running = subprocess.check_output(["ps", "-axo", "comm="], text=True, errors="replace")
+        active = any(Path(line.strip()).name in {"JianyingPro", "Jianying", "CapCut", "剪映专业版", "剪映"}
+                     for line in running.splitlines())
+    else:
+        active = False
+    if active:
+        raise RuntimeError("请先退出剪映/CapCut，再导入草稿，避免运行中的程序覆盖草稿索引")
 
 
 def relocate(value, target):
@@ -31,12 +61,7 @@ def install(source, root):
         raise ValueError("请选择包含 draft_content.json 和 draft_meta_info.json 的完整草稿目录")
     if root.is_relative_to(source):
         raise ValueError("草稿根目录不能位于待导入草稿内部")
-    if os.name == "nt":
-        running = subprocess.check_output([
-            "tasklist", "/FI", "IMAGENAME eq JianyingPro.exe", "/FO", "CSV", "/NH"
-        ], errors="replace", creationflags=subprocess.CREATE_NO_WINDOW)
-        if '"JianyingPro.exe"' in running:
-            raise RuntimeError("请先退出剪映，再导入草稿，避免草稿索引被运行中的程序覆盖。")
+    ensure_editor_closed()
     root.mkdir(parents=True, exist_ok=True)
     target = root / source.name
     if target.exists():
@@ -69,12 +94,11 @@ def install(source, root):
 
 def main():
     parser = argparse.ArgumentParser(description="复制并注册剪映草稿，不覆盖已有项目")
-    parser.add_argument("--root", type=Path, default=Path(os.environ.get("LOCALAPPDATA", ".")) /
-        "JianyingPro/User Data/Projects/com.lveditor.draft")
+    parser.add_argument("--root", type=Path, help="草稿根目录；Mac 优先识别已有目录")
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parent)
     args = parser.parse_args()
     try:
-        print(f"导入完成：{install(args.source, args.root)}\n请打开剪映本地草稿。")
+        print(f"导入完成：{install(args.source, args.root or default_draft_root())}\n请打开剪映本地草稿。")
     except (OSError, ValueError, RuntimeError) as exc:
         parser.exit(2, f"导入失败：{exc}\n")
 

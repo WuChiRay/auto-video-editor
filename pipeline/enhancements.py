@@ -5,6 +5,7 @@ import math
 import os
 import struct
 import wave
+import sys
 from pathlib import Path
 
 from .core import PipelineError, concat_segments, duration_of, escape_subtitle_path, run_command
@@ -145,19 +146,25 @@ def extend_picture(source: Path, target: Path, total: float, fps: int, crf: int)
 
 
 def find_font(text: str, custom=None):
-    from PIL import ImageFont
     candidates = [Path(custom)] if custom else [
         Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts/msyh.ttc",
         Path("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
+    if not custom and sys.platform == "darwin":
+        candidates = [Path("/System/Library/Fonts") / name for name in (
+            "PingFang.ttc", "STHeiti Light.ttc", "STHeiti Medium.ttc",
+            "Supplemental/Songti.ttc", "Supplemental/Arial Unicode.ttf")] + candidates
+        # New macOS versions may store PingFang in system font assets.
+        if not any(p.is_file() for p in candidates[:5]):
+            candidates = list(Path("/System/Library/AssetsV2").glob("com_apple_MobileAsset_Font*/**/PingFang.ttc")) + candidates
     for path in candidates:
         if path.is_file():
             if any("\u3400" <= c <= "\u9fff" for c in text) and "DejaVu" in path.name:
                 continue
             return str(path)
     if any("\u3400" <= c <= "\u9fff" for c in text):
-        raise PipelineError("标签需要中文字体；Linux 请安装 fonts-noto-cjk，或指定元素 font 文件")
+        raise PipelineError("标签需要中文字体；Mac 请启用系统中文字体，Linux 安装 fonts-noto-cjk，或指定元素 font 文件")
     return None
 
 

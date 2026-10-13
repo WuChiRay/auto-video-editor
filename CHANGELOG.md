@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+- Native macOS 15+ releases for Apple Silicon and Intel: .app with bundled CLI, ZIP and DMG.
+- Finder-friendly FFmpeg discovery, system Chinese fonts and Movies output directory.
+- Existing Mac Jianying/CapCut store detection, explicit GUI store selection and running-editor checks.
+- Mac shell skill installer, platform guide, native tests and unpacked-app GUI/render/draft smoke checks.
+- Mac bundles use ad-hoc signatures, without Apple Developer ID signing or notarization. Mac Jianying GUI compatibility still requires user acceptance.
+
 ## 0.4.0
 
 - Continuous whole-script neural narration (default Yunjian mature male), preview MP3, word-aligned SRT, and explicit failure without a robotic voice fallback.

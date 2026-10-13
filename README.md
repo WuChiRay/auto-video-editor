@@ -2,6 +2,8 @@
 
 本地优先的 AI 辅助剪辑工具：图形界面、CLI 和 Codex Skill 共用一条流水线，输出 MP4 与可编辑剪映草稿。
 
+**Mac 用户：下载 [Releases](https://github.com/WuChiRay/auto-video-editor/releases/latest) 的 Apple Silicon（arm64）或 Intel（x64）DMG，把 `.app` 拖入“应用程序”。** 支持 macOS 15+，仍需单独安装 FFmpeg；安装、临时签名限制和 Skill 用法见 [Mac 使用说明](docs/MACOS.md)。
+
 **普通用户：从 [GitHub Releases](https://github.com/WuChiRay/auto-video-editor/releases/latest) 下载 Windows x64 压缩包，解压后打开 `AutoVideoEditor.exe`。**
 程序不需要安装 Python，但需要单独安装 FFmpeg。源码与 Python 包适合开发者、其他平台和自动化调用。
 
@@ -52,7 +54,7 @@ auto-edit-gui
 ```
 
 如果命令入口不在 PATH，也可以用 `python -m pipeline` 或 `python -m pipeline.gui`。
-安装下载的 wheel：`python -m pip install "local_auto_editor-0.4.0-py3-none-any.whl[draft,voice,visual]"`。
+安装下载的 wheel：`python -m pip install "local_auto_editor-0.4.1-py3-none-any.whl[draft,voice,visual]"`。
 
 基础剪辑：
 
@@ -101,6 +103,8 @@ python -m pipeline --input input --plan examples/plan.json --output output/final
 
 默认位置为当前 Windows 用户的剪映本地草稿目录；CLI 可通过 `--draft-root` 指定其他位置。导入复制素材、备份索引并避免覆盖已有同名项目。重新打开剪映，在“本地草稿”中编辑；不要把 JSON 当作视频素材导入。
 
+Mac 会识别已有草稿目录，GUI 导入时确认实际位置；不保证所有 Mac 剪映版本的工程格式都兼容，详见 Mac 使用说明。
+
 基础草稿暂不支持旧版 `--subtitle` 或自动转写字幕；丰富计划支持 `narration.subtitles` 的全片字幕分轨。转场、滤镜等视觉效果合成在画面里，配音、字幕、音乐和音效独立编辑，详见新功能文档。不自动操作剪映导出。分享时必须包含整个草稿目录及 `assets/`，无需分享原视频或连接作者电脑。
 
 ## 在 Codex 中调用
@@ -118,6 +122,8 @@ $auto-video-editor 把 input 里的视频按 plan.json 剪成竖屏，添加动�
 ```
 
 Skill 是本地工具的调用说明，不包含大模型账号。使用你自己的 AI 工具及凭证；默认不上传视频。选择神经配音时仅口播文本发送至微软在线语音服务，已有录音可完全本地处理。
+
+Mac 安装 Skill 使用 `bash install_skill.command`。Mac 应用自带 CLI 位于 `/Applications/AutoVideoEditor.app/Contents/MacOS/auto-edit`。
 
 ## 可选功能与开发
 
@@ -140,5 +146,7 @@ python scripts/build_release.py
 ```
 
 Windows 构建脚本需要在 Windows x64 / Python 3.11 环境运行。GitHub Actions 提供合成素材集成测试与版本标签构建；源码和可执行文件均不包含个人媒体。
+
+Mac 使用 `python scripts/build_macos.py`，生成 `.app`、内置 CLI、ZIP 和 DMG；GitHub Actions 分别构建并测试 arm64 与 x64。Mac 包使用临时签名，未做 Apple 公证。
 
 共享/服务部署设计见 [docs/SHARING_DESIGN.md](docs/SHARING_DESIGN.md)。许可为 [MIT](LICENSE)，第三方许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。本项目与剪映、CapCut 及其厂商没有隶属关系。

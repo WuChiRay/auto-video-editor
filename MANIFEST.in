@@ -1,4 +1,4 @@
-include LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md install_skill.ps1 config.example.json
+include LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md install_skill.ps1 install_skill.command .gitattributes config.example.json
 recursive-include examples *.json *.txt
 recursive-include skills *.md *.yaml
 recursive-include docs *.md

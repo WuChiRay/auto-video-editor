@@ -28,3 +28,41 @@ jobs:
           path: |
             dist/*
             release/*.zip
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: '1'
+      HOMEBREW_NO_INSTALL_CLEANUP: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: brew install ffmpeg
+      - run: python -m pip install '.[draft,voice,visual,dev]'
+      - run: python -X utf8 -m unittest discover -s tests -v
+      - run: python scripts/build_macos.py
+      - name: Test unpacked Mac app and CLI
+        shell: bash
+        run: |
+          archive=$(ls release/*-macos-${{ matrix.arch }}.zip)
+          ditto -x -k "$archive" work/mac-package-smoke
+          base=$(find work/mac-package-smoke -maxdepth 1 -type d -name 'auto-video-editor-*' | head -n 1)
+          codesign --verify --deep --strict "$base/AutoVideoEditor.app"
+          python scripts/smoke_release.py "$base/auto-edit" --app "$base/AutoVideoEditor.app"
+          hdiutil verify release/*-macos-${{ matrix.arch }}.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages-macos-${{ matrix.arch }}
+          path: |
+            release/*.zip
+            release/*.dmg
+            release/SHA256SUMS-*.txt

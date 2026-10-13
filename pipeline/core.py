@@ -66,14 +66,28 @@ def run_command(args: list[str], *, capture: bool = True) -> subprocess.Complete
 def require_tools() -> None:
     # Portable releases can use separately obtained FFmpeg in a sibling bin folder.
     import sys
+    folders = []
     if getattr(sys, "frozen", False):
         base = Path(sys.executable).parent
-        for folder in (base / "bin", base / "ffmpeg" / "bin"):
-            if folder.is_dir():
-                os.environ["PATH"] = str(folder) + os.pathsep + os.environ.get("PATH", "")
+        folders.extend((base / "bin", base / "ffmpeg" / "bin"))
+        if sys.platform == "darwin":
+            app = next((p for p in Path(sys.executable).parents if p.suffix == ".app"), None)
+            if app:
+                folders.append(app.parent / "bin")
+    if sys.platform == "darwin":
+        # Finder-launched apps do not inherit the user's interactive shell PATH.
+        folders.extend((Path("/opt/homebrew/bin"), Path("/usr/local/bin")))
+    present = [str(p) for p in folders if p.is_dir()]
+    os.environ["PATH"] = os.pathsep.join(present + [os.environ.get("PATH", "")])
     missing = [x for x in ("ffmpeg", "ffprobe") if not command_exists(x)]
     if missing:
-        raise PipelineError("缺少命令：" + ", ".join(missing) + "。请先安装 FFmpeg 并将 bin 加入 PATH。")
+        hint = "Mac 可在终端执行 brew install ffmpeg。" if sys.platform == "darwin" else "请先安装 FFmpeg 并将 bin 加入 PATH。"
+        raise PipelineError("缺少命令：" + ", ".join(missing) + "。" + hint)
+
+
+def subtitle_font() -> str:
+    import sys
+    return "PingFang SC" if sys.platform == "darwin" else "Microsoft YaHei" if os.name == "nt" else "Noto Sans CJK SC"
 
 
 def discover_videos(input_dir: Path) -> list[Path]:
@@ -213,8 +227,8 @@ def write_title_track(path: Path, seg: ClipSegment, index: int, total: int,
         f"[Script Info]\nScriptType: v4.00+\nPlayResX: {width}\nPlayResY: {height}\n"
         "[V4+ Styles]\n"
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Title,Microsoft YaHei,{round(width*.057)},&H00FFFFFF,&H00FFFFFF,&H002A2318,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,8,30,30,{round(height*.10)},1\n"
-        f"Style: Meta,Microsoft YaHei,{round(width*.031)},&H0034E9FF,&H0034E9FF,&H002A2318,&H80000000,0,0,0,0,100,100,0,0,1,1,1,8,30,30,{round(height*.052)},1\n"
+        f"Style: Title,{subtitle_font()},{round(width*.057)},&H00FFFFFF,&H00FFFFFF,&H002A2318,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,8,30,30,{round(height*.10)},1\n"
+        f"Style: Meta,{subtitle_font()},{round(width*.031)},&H0034E9FF,&H0034E9FF,&H002A2318,&H80000000,0,0,0,0,100,100,0,0,1,1,1,8,30,30,{round(height*.052)},1\n"
         "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
         f"Dialogue: 0,0:00:00.00,{clock(seg.duration)},Title,,0,0,0,,{safe(seg.title)}\n"
         f"Dialogue: 0,0:00:00.00,{clock(seg.duration)},Meta,,0,0,0,,{safe(heading)}  |  {index:02d}/{total:02d}\n",
