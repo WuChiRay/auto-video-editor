@@ -14,10 +14,10 @@
 1. 先安装 FFmpeg。已安装 [Homebrew](https://brew.sh/) 的用户在终端执行：
 
    ```bash
-   brew install ffmpeg
+   brew install ffmpeg-full
    ```
 
-   FFmpeg 是单独安装的外部工具，不包含在应用包中。程序支持 Finder 启动时查找 `/opt/homebrew/bin` 和 `/usr/local/bin`；也可把自己的 FFmpeg/ffprobe 放在应用旁的 `bin/`。
+   需要含 `subtitles/libass` 的完整 FFmpeg；当前 Homebrew 的精简 `ffmpeg` 缺少字幕支持，因此使用 `ffmpeg-full`。它是单独安装的外部工具，不包含在应用包中。程序支持 Finder 启动时查找两种架构的 Homebrew 路径和 `opt/ffmpeg-full/bin`；也可把自有完整 FFmpeg/ffprobe 放在应用旁的 `bin/`。
 2. 打开 DMG，把 `AutoVideoEditor.app` 拖入“应用程序”。Python 与剪辑、配音、图像叠加、草稿依赖已包含，无需单独安装 Python。
 3. 从“应用程序”打开，选择素材文件夹、剪辑计划（可选）、保存位置和口播 TXT（可选）。默认输出到 `~/Movies/auto-edit/`，可先点“生成配音试听”。
 4. 本包使用临时签名（ad-hoc），**没有 Apple Developer ID 签名或苹果公证**。下载后可能被 Gatekeeper 阻止；确认来自本仓库的发布页后，按系统“隐私与安全性”中的“仍要打开”流程处理。不要把临时签名理解为苹果安全认证。

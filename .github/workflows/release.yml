@@ -46,7 +46,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: brew install ffmpeg
+      - run: |
+          brew install ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
       - run: python -m pip install '.[draft,voice,visual,dev]'
       - run: python -X utf8 -m unittest discover -s tests -v
       - run: python scripts/build_macos.py

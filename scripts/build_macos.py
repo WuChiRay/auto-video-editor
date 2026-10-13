@@ -62,7 +62,7 @@ def main():
     run(["codesign", "--verify", "--deep", "--strict", str(app)], root)
     (base / "QUICK_START.txt").write_text(
         f"Auto Video Editor {__version__} / macOS 15+ / {arch}\n"
-        "1. Install FFmpeg separately: brew install ffmpeg\n"
+        "1. Install FFmpeg with subtitle support: brew install ffmpeg-full\n"
         "2. Drag AutoVideoEditor.app into Applications, then open it. Python is included.\n"
         "3. This release is ad-hoc signed, not Apple notarized. If blocked, use System Settings > Privacy & Security > Open Anyway after verifying the download source.\n"
         "4. CLI: /Applications/AutoVideoEditor.app/Contents/MacOS/auto-edit --help\n"

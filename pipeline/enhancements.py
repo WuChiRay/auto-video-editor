@@ -8,7 +8,7 @@ import wave
 import sys
 from pathlib import Path
 
-from .core import PipelineError, concat_segments, duration_of, escape_subtitle_path, run_command
+from .core import PipelineError, concat_segments, duration_of, escape_subtitle_path, run_command, require_subtitles
 
 FILTERS = {
     "none": "", "warm": "colorbalance=rs=.06:bs=-.04",
@@ -342,6 +342,7 @@ def mix_narration(picture: Path, target: Path, work: Path, total: float, *,
     args = ["ffmpeg", "-y", "-v", "error", "-i", str(picture), "-i", str(master),
             "-filter_threads", "1", "-map", "0:v", "-map", "1:a"]
     if subtitles:
+        require_subtitles()
         args.extend(["-vf", f"subtitles=filename='{escape_subtitle_path(subtitles)}'", "-c:v", "libx264", "-crf", str(crf)])
     else:
         args.extend(["-c:v", "copy"])

@@ -76,18 +76,25 @@ def require_tools() -> None:
                 folders.append(app.parent / "bin")
     if sys.platform == "darwin":
         # Finder-launched apps do not inherit the user's interactive shell PATH.
-        folders.extend((Path("/opt/homebrew/bin"), Path("/usr/local/bin")))
+        folders.extend(Path(p) for p in ("/opt/homebrew/opt/ffmpeg-full/bin", "/usr/local/opt/ffmpeg-full/bin",
+                                        "/opt/homebrew/bin", "/usr/local/bin"))
     present = [str(p) for p in folders if p.is_dir()]
     os.environ["PATH"] = os.pathsep.join(present + [os.environ.get("PATH", "")])
     missing = [x for x in ("ffmpeg", "ffprobe") if not command_exists(x)]
     if missing:
-        hint = "Mac 可在终端执行 brew install ffmpeg。" if sys.platform == "darwin" else "请先安装 FFmpeg 并将 bin 加入 PATH。"
+        hint = "Mac 可在终端执行 brew install ffmpeg-full。" if sys.platform == "darwin" else "请先安装 FFmpeg 并将 bin 加入 PATH。"
         raise PipelineError("缺少命令：" + ", ".join(missing) + "。" + hint)
 
 
 def subtitle_font() -> str:
     import sys
     return "PingFang SC" if sys.platform == "darwin" else "Microsoft YaHei" if os.name == "nt" else "Noto Sans CJK SC"
+
+
+def require_subtitles() -> None:
+    filters = run_command(["ffmpeg", "-hide_banner", "-filters"]).stdout
+    if not re.search(r"\bsubtitles\s", filters):
+        raise PipelineError("当前 FFmpeg 不含 subtitles/libass 字幕滤镜。Mac 请安装 brew install ffmpeg-full；其他平台请更换带 libass 的 FFmpeg 构建。")
 
 
 def discover_videos(input_dir: Path) -> list[Path]:
@@ -246,6 +253,7 @@ def render_segment(seg: ClipSegment, target: Path, *, width: int, height: int, f
     from .enhancements import segment_filters
     vf += segment_filters(seg, width, height, fps)
     if subtitle:
+        require_subtitles()
         vf += f",subtitles=filename='{escape_subtitle_path(subtitle)}'"
     source_has_audio = has_audio(Path(seg.source)) and not mute_source and not seg.loop
     args = ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", seg.source]
