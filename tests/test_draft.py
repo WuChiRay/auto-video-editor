@@ -44,6 +44,8 @@ class DraftExportTest(unittest.TestCase):
             shutil.copytree(folder, moved)
             relocated = relocate(data, moved)
             for material in relocated['materials']['videos']:
-                self.assertTrue(Path(material['path']).is_relative_to(moved))
+                # Windows runner TEMP can use a junction/short path alias.
+                self.assertTrue(Path(material['path']).resolve().is_relative_to(moved.resolve()),
+                                (material['path'], str(moved.resolve())))
                 self.assertTrue(Path(material['path']).is_file())
             self.assertIn(b'python install_draft.py', (folder / '双击导入.cmd').read_bytes())
